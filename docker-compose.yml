@@ -1,0 +1,207 @@
+
+services:
+  api_gateway:
+    build:
+      context: ../api-gateway
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - JWT_SERVICE_SECRET=JIHAEZNKQS456EF456H4635456654DRHJV
+      - JWT_EXPIRATION=1h
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - PRODUCTS_SERVICE_URL=products-service:5000
+      - ORDERS_SERVICE_URL=orders-service:5001
+      - USERS_SERVICE_URL=users-service:5052
+      - JWT_SERVICE_SECRET=JIHAEZNKQS456EF456H4635456654DRHJV
+      - JWT_EXPIRATION=1d
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=BHKDJL4565ERF65DE
+    depends_on:
+      products-service:
+        condition: service_healthy
+      orders-service:
+        condition: service_healthy
+      users-service:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  products-service:
+    build:
+      context: ../products-microservice
+      dockerfile: Dockerfile
+    ports:
+      - "5000:5000"
+      - "5050:5050"
+    environment:
+      - NODE_ENV=development
+      - MONGODB_URI=mongodb://mongodb:27017/products
+      - RABBITMQ_URL=amqp://rabbitmq:5672
+      - JWT_SERVICE_SECRET=JIHAEZNKQS456EF456H4635456654DRHJV
+      - JWT_EXPIRATION=1h
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:5050/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+
+  orders-service:
+    build:
+      context: ../orders-microservice
+      dockerfile: Dockerfile
+    ports:
+      - "5001:5001"
+      - "5051:5051"
+    environment:
+      - NODE_ENV=development
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=orders
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - RABBITMQ_URL=amqp://rabbitmq:5672
+      - RABBITMQ_QUEUE=orders_queue
+      - JWT_SERVICE_SECRET=JIHAEZNKQS456EF456H4635456654DRHJV
+      - JWT_EXPIRATION=1h
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:5051/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+
+  mongodb:
+    image: mongo:latest
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      interval: 20s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  postgres:
+    image: postgres:latest
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=orders
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 20s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  rabbitmq:
+    image: rabbitmq:3.12-management
+    container_name: rabbitmq
+    ports:
+      - "5672:5672"    # AMQP protocol port
+      - "15672:15672"  # Management UI port
+    environment:
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_port_connectivity"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  redis:
+    image: redis:latest
+    ports:
+      - "6379:6379"
+    command: redis-server --requirepass BHKDJL4565ERF65DE
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "BHKDJL4565ERF65DE", "ping"]
+      interval: 20s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    environment:
+      - REDIS_HOSTS=local:redis:6379:0:BHKDJL4565ERF65DE
+    ports:
+      - "8081:8081"
+    depends_on:
+      - redis
+
+  users-service:
+    build:
+      context: ../users-microservice
+      dockerfile: Dockerfile
+    ports:
+      - "5002:5002"
+      - "5052:5052"
+    environment:
+      - NODE_ENV=development
+      - POSTGRES_HOST=users-postgres
+      - POSTGRES_PORT=5433
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=users_db
+    depends_on:
+      users-postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:5002/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+
+  users-postgres:
+    image: postgres:latest
+    ports:
+      - "5433:5433"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=users_db
+    command: -p 5433
+    volumes:
+      - users_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -p 5433"]
+      interval: 20s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+volumes:
+  mongodb_data:
+  postgres_data:
+  users_postgres_data:
+  rabbitmq_data:
+  redis_data:

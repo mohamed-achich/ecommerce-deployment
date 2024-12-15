@@ -1,0 +1,185 @@
+
+services:
+  rabbitmq:
+    image: rabbitmq:3.12-management
+    ports:
+      - "5672:5672"    # AMQP protocol port
+      - "15672:15672"  # Management UI port
+    environment:
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
+
+  redis:
+    image: redis:latest
+    ports:
+      - "6379:6379"
+    command: redis-server --requirepass BHKDJL4565ERF65DE
+    volumes:
+      - redis_data_dev:/data
+
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    environment:
+      - REDIS_HOSTS=local:redis:6379:0:BHKDJL4565ERF65DE
+    ports:
+      - "8081:8081"
+    depends_on:
+      - redis
+
+  api-gateway:
+    build: 
+      context: ../api-gateway
+      dockerfile: Dockerfile.dev
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672 
+      - RABBITMQ_USER=guest
+      - RABBITMQ_PASSWORD=guest
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=BHKDJL4565ERF65DE
+      - USERS_SERVICE_URL=users-service:5052
+      - PRODUCTS_SERVICE_URL=products-service:5050
+      - ORDERS_SERVICE_URL=orders-service:5051
+      - JWT_SERVICE_SECRET=JIHAEZNKQS456EF456H4635456654DRHJV
+      - JWT_EXPIRATION=1h
+    volumes:
+      - ../api-gateway:/app
+      - /app/node_modules
+    depends_on:
+      - rabbitmq
+      - redis
+    command: npm run start:dev
+
+  users-service:
+    build:
+      context: ../users-microservice
+      dockerfile: Dockerfile.dev
+    ports:
+      - "5002:5002"  # REST API
+      - "5052:5052"  # gRPC
+    environment:
+      - NODE_ENV=development
+      - PORT=5002
+      - GRPC_PORT=5052
+      - POSTGRES_HOST=users-postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=users_db
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=5672
+      - RABBITMQ_USER=guest
+      - RABBITMQ_PASSWORD=guest
+    volumes:
+      - ../users-microservice:/app
+      - /app/node_modules
+    depends_on:
+      - rabbitmq
+      - users-postgres
+    command: npm run start:dev
+
+  products-service:
+    build:
+      context: ../products-microservice
+      dockerfile: Dockerfile.dev
+    ports:
+      - "5000:5000"  # REST API
+      - "5050:5050"  # gRPC
+    environment:
+      - NODE_ENV=development
+      - PORT=5000
+      - GRPC_PORT=5050
+      - MONGODB_HOST=mongodb
+      - MONGODB_PORT=27017
+      - MONGODB_DB=products
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
+      - RABBITMQ_USER=guest
+      - RABBITMQ_PASSWORD=guest
+    volumes:
+      - ../products-microservice:/app
+      - /app/node_modules
+    depends_on:
+      - rabbitmq
+      - mongodb
+    command: npm run start:dev
+
+  orders-service:
+    build:
+      context: ../orders-microservice
+      dockerfile: Dockerfile.dev
+    ports:
+      - "5001:5001"  # REST API
+      - "5051:5051"  # gRPC
+    environment:
+      - NODE_ENV=development
+      - PORT=5001
+      - GRPC_PORT=5051
+      - POSTGRES_HOST=orders-postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=orders_db
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
+
+      - RABBITMQ_USER=guest
+      - RABBITMQ_PASSWORD=guest
+    volumes:
+      - ../orders-microservice:/usr/src/app
+      - /usr/src/app/node_modules
+    depends_on:
+      - rabbitmq
+      - orders-postgres
+    command: npm run start:dev
+
+  users-postgres:
+    image: postgres:latest
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=users_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - users_postgres_dev:/var/lib/postgresql/data
+
+  products-postgres:
+    image: postgres:latest
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=products_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - products_postgres_dev:/var/lib/postgresql/data
+
+  orders-postgres:
+    image: postgres:latest
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=orders_db
+    ports:
+      - "5434:5432"
+    volumes:
+      - orders_postgres_dev:/var/lib/postgresql/data
+
+  mongodb:
+    image: mongo:latest
+    environment:
+      - MONGO_INITDB_DATABASE=products
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data_dev:/data/db
+
+volumes:
+  users_postgres_dev:
+  products_postgres_dev:
+  orders_postgres_dev:
+  redis_data_dev:
+  mongodb_data_dev:
