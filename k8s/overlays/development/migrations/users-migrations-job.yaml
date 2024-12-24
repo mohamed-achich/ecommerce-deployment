@@ -1,0 +1,28 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: users-db-migrations
+  namespace: ecommerce-development
+spec:
+  template:
+    spec:
+      containers:
+      - name: users-migrations
+        image: users-service:latest
+        imagePullPolicy: Never
+        command: ["npm", "run", "typeorm:run"]
+        env:
+        - name: NODE_ENV
+          value: "production"
+        - name: POSTGRES_HOST
+          value: "users-postgres"
+        - name: POSTGRES_PORT
+          value: "5433"
+        - name: POSTGRES_USER
+          value: "postgres"
+        - name: POSTGRES_PASSWORD
+          value: "postgres"
+        - name: POSTGRES_DB
+          value: "users_db"
+      restartPolicy: Never
+  backoffLimit: 4

@@ -1,0 +1,28 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: orders-db-migrations
+  namespace: ecommerce-development
+spec:
+  template:
+    spec:
+      containers:
+      - name: orders-migrations
+        image: orders-service:latest
+        imagePullPolicy: Never
+        command: ["npm", "run", "typeorm:run"]
+        env:
+        - name: NODE_ENV
+          value: "production"
+        - name: POSTGRES_HOST
+          value: "orders-postgres"
+        - name: POSTGRES_PORT
+          value: "5432"
+        - name: POSTGRES_USER
+          value: "postgres"
+        - name: POSTGRES_PASSWORD
+          value: "postgres"
+        - name: POSTGRES_DB
+          value: "orders_db"
+      restartPolicy: Never
+  backoffLimit: 4
