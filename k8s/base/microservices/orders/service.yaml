@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: orders-service
+  labels:
+    app: orders-service
+    app.kubernetes.io/part-of: ecommerce-platform
+spec:
+  type: ClusterIP
+  ports:
+    - port: 5001
+      targetPort: 5001
+      protocol: TCP
+      name: http
+    - port: 5051
+      targetPort: 5051
+      protocol: TCP
+      name: grpc
+  selector:
+    app: orders-service

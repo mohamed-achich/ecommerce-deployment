@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: products-service
+  labels:
+    app: products-service
+    app.kubernetes.io/part-of: ecommerce-platform
+spec:
+  type: ClusterIP
+  ports:
+    - port: 5000
+      targetPort: 5000
+      protocol: TCP
+      name: http
+    - port: 5050
+      targetPort: 5050
+      protocol: TCP
+      name: grpc
+  selector:
+    app: products-service

@@ -1,0 +1,93 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: orders-service
+  labels:
+    app: orders-service
+    app.kubernetes.io/part-of: ecommerce-platform
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: orders-service
+  template:
+    metadata:
+      labels:
+        app: orders-service
+        app.kubernetes.io/part-of: ecommerce-platform
+    spec:
+      initContainers:
+      - name: wait-for-rabbitmq
+        image: busybox:1.36
+        command: ['sh', '-c', 'until nc -zv rabbitmq 5672; do echo waiting for rabbitmq; sleep 2; done;']
+      - name: wait-for-postgres
+        image: busybox:1.36
+        command: ['sh', '-c', 'until nc -zv orders-postgres 5432; do echo waiting for postgres; sleep 2; done;']
+      containers:
+      - name: orders-service
+        image: ecommerce/orders-service:latest
+        ports:
+        - containerPort: 5001
+          name: grpc
+        - containerPort: 5051
+          name: http
+        env:
+        - name: PORT
+          value: "5051"
+        - name: GRPC_PORT
+          value: "5001"
+        - name: POSTGRES_HOST
+          value: orders-postgres
+        - name: POSTGRES_PORT
+          value: "5432"
+        - name: POSTGRES_DB
+          value: orders
+        - name: POSTGRES_USER
+          value: postgres
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: orders-service-secrets
+              key: POSTGRES_PASSWORD
+        - name: RABBITMQ_URI
+          value: amqp://rabbitmq:5672
+        - name: RABBITMQ_QUEUE
+          value: orders_queue
+        - name: JWT_SERVICE_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: orders-service-secrets
+              key: JWT_SERVICE_SECRET
+        - name: NODE_ENV
+          value: "production"
+        envFrom:
+        - configMapRef:
+            name: orders-service-config
+        - secretRef:
+            name: orders-service-secrets
+        resources:
+          requests:
+            cpu: "50m"
+            memory: "128Mi"
+          limits:
+            cpu: "100m"
+            memory: "256Mi"
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 5051
+          initialDelaySeconds: 15
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 5051
+          initialDelaySeconds: 30
+          periodSeconds: 20
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 1000
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
