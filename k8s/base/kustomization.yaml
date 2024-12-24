@@ -1,0 +1,95 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - microservices/api-gateway/deployment.yaml
+  - microservices/api-gateway/service.yaml
+  - microservices/products/deployment.yaml
+  - microservices/products/service.yaml
+  - microservices/orders/deployment.yaml
+  - microservices/orders/service.yaml
+  - microservices/users/deployment.yaml
+  - microservices/users/service.yaml
+  - microservices/users/hpa.yaml
+  - network/api-gateway-network-policy.yaml
+  - network/users-network-policy.yaml
+  - network/products-network-policy.yaml
+  - network/orders-network-policy.yaml
+  - network/rabbitmq-network-policy.yaml
+  - databases/mongodb/mongodb-service.yaml
+  - databases/mongodb/mongodb-statefulset.yaml
+  - databases/postgres/orders-postgres-service.yaml
+  - databases/postgres/orders-postgres-statefulset.yaml
+  - databases/postgres/users-postgres-service.yaml
+  - databases/postgres/users-postgres-statefulset.yaml
+  - databases/redis/redis-service.yaml
+  - databases/redis/redis-statefulset.yaml
+  - messaging/rabbitmq-service.yaml
+  - messaging/rabbitmq-statefulset.yaml
+  - ingress/ingress.yaml
+
+secretGenerator:
+  - name: rabbitmq-secrets
+    files: []
+    literals:
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
+
+  - name: api-gateway-secrets
+    literals:
+      - JWT_SERVICE_SECRET=JIHAEZNKQS456EF456H4635456654DRHJV
+      - REDIS_PASSWORD=BHKDJL4565ERF65DE
+
+  - name: products-service-secrets
+    literals:
+      - JWT_SERVICE_SECRET=JIHAEZNKQS456EF456H4635456654DRHJV
+
+  - name: orders-service-secrets
+    literals:
+      - JWT_SERVICE_SECRET=JIHAEZNKQS456EF456H4635456654DRHJV
+      - POSTGRES_PASSWORD=postgres
+
+  - name: users-service-secrets
+    literals:
+      - JWT_SERVICE_SECRET=JIHAEZNKQS456EF456H4635456654DRHJV
+      - POSTGRES_PASSWORD=postgres
+
+commonLabels:
+  app.kubernetes.io/part-of: ecommerce-platform
+
+configMapGenerator:
+  - name: api-gateway-config
+    literals:
+      - NODE_ENV=development
+      - JWT_EXPIRATION=1h
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - PRODUCTS_SERVICE_URL=products-service:5050
+      - ORDERS_SERVICE_URL=orders-service:5051
+      - USERS_SERVICE_URL=users-service:5052
+
+  - name: products-service-config
+    literals:
+      - NODE_ENV=development
+      - MONGODB_URI=mongodb://mongodb:27017/products
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
+      - JWT_EXPIRATION=1h
+
+  - name: orders-service-config
+    literals:
+      - NODE_ENV=development
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=orders
+      - POSTGRES_USER=postgres
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
+      - RABBITMQ_QUEUE=orders_queue
+      - JWT_EXPIRATION=1h
+
+  - name: users-service-config
+    literals:
+      - NODE_ENV=development
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=users_db
+      - POSTGRES_USER=postgres
