@@ -1,0 +1,20 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: products-service-network-policy
+  labels:
+    app.kubernetes.io/part-of: ecommerce-platform
+spec:
+  podSelector:
+    matchLabels:
+      app: products-service
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/part-of: ecommerce-platform
+    ports:
+    - protocol: TCP
+      port: 5050

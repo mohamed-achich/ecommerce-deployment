@@ -1,0 +1,44 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: api-gateway-network-policy
+  labels:
+    app.kubernetes.io/part-of: ecommerce-platform
+spec:
+  podSelector:
+    matchLabels:
+      app: api-gateway
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - namespaceSelector: {}
+      podSelector:
+        matchLabels:
+          app.kubernetes.io/name: ingress-nginx
+    ports:
+    - protocol: TCP
+      port: 3000
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          app: users-service
+    ports:
+    - protocol: TCP
+      port: 5052
+  - to:
+    - podSelector:
+        matchLabels:
+          app: products-service
+    ports:
+    - protocol: TCP
+      port: 5050
+  - to:
+    - podSelector:
+        matchLabels:
+          app: orders-service
+    ports:
+    - protocol: TCP
+      port: 5051

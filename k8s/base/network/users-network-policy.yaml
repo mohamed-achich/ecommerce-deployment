@@ -1,0 +1,17 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: users-service-network-policy
+  labels:
+    app.kubernetes.io/part-of: ecommerce-platform
+spec:
+  podSelector:
+    matchLabels:
+      app: users-service
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/part-of: ecommerce-platform
