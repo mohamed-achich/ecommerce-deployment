@@ -1,0 +1,127 @@
+name: Kubernetes Deployment
+
+on:
+  push:
+    branches: [ main, staging ]
+    paths:
+      - 'k8s/**'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'k8s/**'
+  workflow_dispatch:
+
+env:
+  AWS_REGION: us-east-1
+  PRODUCTION_BRANCH: main
+  STAGING_BRANCH: staging
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    outputs:
+      environment: ${{ steps.env.outputs.environment }}
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set environment
+        id: env
+        run: |
+          if [[ ${{ github.ref }} == 'refs/heads/main' ]]; then
+            echo "environment=production" >> $GITHUB_OUTPUT
+          else
+            echo "environment=staging" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'latest'
+      
+      - name: Install kustomize
+        run: |
+          curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash
+          sudo mv kustomize /usr/local/bin/
+      
+      - name: Validate kustomize build
+        run: |
+          cd k8s/overlays/${{ steps.env.outputs.environment }}
+          kustomize build . > manifest.yaml
+          kubectl apply --dry-run=client -f manifest.yaml
+
+  deploy:
+    needs: validate
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    environment: ${{ needs.validate.outputs.environment }}
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+      
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'latest'
+      
+      - name: Install kustomize
+        run: |
+          curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash
+          sudo mv kustomize /usr/local/bin/
+      
+      - name: Update kubeconfig
+        run: aws eks update-kubeconfig --name ecommerce-${{ needs.validate.outputs.environment }} --region ${{ env.AWS_REGION }}
+      
+      - name: Create namespaces
+        run: |
+          kubectl create namespace ${{ needs.validate.outputs.environment }} --dry-run=client -o yaml | kubectl apply -f -
+      
+      - name: Apply secrets
+        run: |
+          cd k8s/overlays/${{ needs.validate.outputs.environment }}/secrets
+          for file in *.yaml; do
+            if [ -f "$file" ]; then
+              kubectl apply -f "$file" -n ${{ needs.validate.outputs.environment }}
+            fi
+          done
+      
+      - name: Deploy infrastructure components
+        run: |
+          cd k8s/overlays/${{ needs.validate.outputs.environment }}
+          # Apply CRDs and infrastructure components first
+          kustomize build ../../base/crds | kubectl apply -f -
+          kustomize build ../../base/ingress | kubectl apply -f -
+          kustomize build ../../base/monitoring | kubectl apply -f -
+      
+      - name: Deploy databases
+        run: |
+          cd k8s/overlays/${{ needs.validate.outputs.environment }}
+          # Deploy databases
+          kustomize build ../../base/databases | kubectl apply -f -
+          # Wait for databases to be ready
+          kubectl wait --for=condition=ready pod -l app=mongodb -n ${{ needs.validate.outputs.environment }} --timeout=300s
+          kubectl wait --for=condition=ready pod -l app=postgres -n ${{ needs.validate.outputs.environment }} --timeout=300s
+          kubectl wait --for=condition=ready pod -l app=redis -n ${{ needs.validate.outputs.environment }} --timeout=300s
+      
+      - name: Deploy microservices
+        run: |
+          cd k8s/overlays/${{ needs.validate.outputs.environment }}
+          # Deploy microservices
+          kustomize build ../../base/microservices | kubectl apply -f -
+          # Wait for deployments to be ready
+          kubectl wait --for=condition=available deployment --all -n ${{ needs.validate.outputs.environment }} --timeout=300s
+      
+      - name: Verify deployment
+        run: |
+          kubectl get all -n ${{ needs.validate.outputs.environment }}
+          kubectl get ingress -n ${{ needs.validate.outputs.environment }}
+          # Check pods status
+          if kubectl get pods -n ${{ needs.validate.outputs.environment }} | grep -E "Error|CrashLoopBackOff"; then
+            echo "Some pods are in error state"
+            exit 1
+          fi
