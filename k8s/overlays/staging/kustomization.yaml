@@ -1,7 +1,7 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
-namespace: ecommerce-production
+namespace: ecommerce-staging
 
 bases:
   - ../../base
@@ -19,101 +19,129 @@ resources:
   - ../../base/microservices/users/hpa.yaml
 
 patches:
-  # Redis production configuration
-  - target:
-      kind: StatefulSet
-      name: redis
-    patch: |-
-      - op: replace
-        path: /spec/template/spec/containers/0/resources/requests/cpu
-        value: 500m
-      - op: replace
-        path: /spec/template/spec/containers/0/resources/requests/memory
-        value: 1Gi
-      - op: replace
-        path: /spec/template/spec/containers/0/resources/limits/cpu
-        value: 1000m
-      - op: replace
-        path: /spec/template/spec/containers/0/resources/limits/memory
-        value: 2Gi
-      - op: replace
-        path: /spec/volumeClaimTemplates/0/spec/resources/requests/storage
-        value: 20Gi
-      - op: replace
-        path: /spec/replicas
-        value: 3
-
-  # MongoDB production configuration
+  # Database StatefulSet configurations for staging
   - target:
       kind: StatefulSet
       name: mongodb
     patch: |-
       - op: replace
-        path: /spec/template/spec/containers/0/resources/requests/cpu
-        value: 500m
+        path: /spec/replicas
+        value: 1
       - op: replace
-        path: /spec/template/spec/containers/0/resources/requests/memory
-        value: 1Gi
+        path: /spec/template/spec/containers/0/resources
+        value:
+          requests:
+            cpu: "200m"
+            memory: "512Mi"
+          limits:
+            cpu: "500m"
+            memory: "1Gi"
       - op: replace
-        path: /spec/template/spec/containers/0/resources/limits/cpu
-        value: 1000m
-      - op: replace
-        path: /spec/template/spec/containers/0/resources/limits/memory
-        value: 2Gi
+        path: /spec/volumeClaimTemplates/0/spec/storageClassName
+        value: efs-sc
       - op: replace
         path: /spec/volumeClaimTemplates/0/spec/resources/requests/storage
-        value: 20Gi
-      - op: replace
-        path: /spec/replicas
-        value: 3
+        value: 10Gi
 
-  # PostgreSQL Users DB production configuration
   - target:
       kind: StatefulSet
       name: users-postgres
     patch: |-
       - op: replace
-        path: /spec/template/spec/containers/0/resources/requests/cpu
-        value: 500m
+        path: /spec/replicas
+        value: 1
       - op: replace
-        path: /spec/template/spec/containers/0/resources/requests/memory
-        value: 1Gi
+        path: /spec/template/spec/containers/0/resources
+        value:
+          requests:
+            cpu: "200m"
+            memory: "512Mi"
+          limits:
+            cpu: "500m"
+            memory: "1Gi"
       - op: replace
-        path: /spec/template/spec/containers/0/resources/limits/cpu
-        value: 1000m
-      - op: replace
-        path: /spec/template/spec/containers/0/resources/limits/memory
-        value: 2Gi
+        path: /spec/volumeClaimTemplates/0/spec/storageClassName
+        value: efs-sc
       - op: replace
         path: /spec/volumeClaimTemplates/0/spec/resources/requests/storage
-        value: 20Gi
-      - op: replace
-        path: /spec/replicas
-        value: 3
+        value: 10Gi
 
-  # PostgreSQL Orders DB production configuration
   - target:
       kind: StatefulSet
       name: orders-postgres
     patch: |-
       - op: replace
-        path: /spec/template/spec/containers/0/resources/requests/cpu
-        value: 500m
+        path: /spec/replicas
+        value: 1
       - op: replace
-        path: /spec/template/spec/containers/0/resources/requests/memory
-        value: 1Gi
+        path: /spec/template/spec/containers/0/resources
+        value:
+          requests:
+            cpu: "200m"
+            memory: "512Mi"
+          limits:
+            cpu: "500m"
+            memory: "1Gi"
       - op: replace
-        path: /spec/template/spec/containers/0/resources/limits/cpu
-        value: 1000m
-      - op: replace
-        path: /spec/template/spec/containers/0/resources/limits/memory
-        value: 2Gi
+        path: /spec/volumeClaimTemplates/0/spec/storageClassName
+        value: efs-sc
       - op: replace
         path: /spec/volumeClaimTemplates/0/spec/resources/requests/storage
-        value: 20Gi
+        value: 10Gi
+
+  - target:
+      kind: StatefulSet
+      name: redis
+    patch: |-
       - op: replace
         path: /spec/replicas
-        value: 3
+        value: 1
+      - op: replace
+        path: /spec/template/spec/containers/0/resources
+        value:
+          requests:
+            cpu: "100m"
+            memory: "256Mi"
+          limits:
+            cpu: "200m"
+            memory: "512Mi"
+      - op: replace
+        path: /spec/volumeClaimTemplates/0/spec/storageClassName
+        value: efs-sc
+      - op: replace
+        path: /spec/volumeClaimTemplates/0/spec/resources/requests/storage
+        value: 5Gi
+
+  # Microservices minimal resource configuration for staging
+  - target:
+      kind: Deployment
+    patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/cpu
+        value: 50m
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/memory
+        value: 128Mi
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/cpu
+        value: 100m
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/memory
+        value: 256Mi
+
+  # Minimal HPA configuration for staging
+  - target:
+      kind: HorizontalPodAutoscaler
+    patch: |-
+      - op: replace
+        path: /spec/minReplicas
+        value: 1
+      - op: replace
+        path: /spec/maxReplicas
+        value: 2
+      - op: replace
+        path: /spec/metrics/0/resource/target/averageUtilization
+        value: 90
 
   # Set imagePullPolicy to Always for all deployments
   - target:
@@ -123,45 +151,20 @@ patches:
         path: /spec/template/spec/containers/0/imagePullPolicy
         value: Always
 
-  # Production resource requirements
-  - target:
-      kind: Deployment
-    patch: |-
-      - op: replace
-        path: /spec/template/spec/containers/0/resources/requests/cpu
-        value: 500m
-      - op: replace
-        path: /spec/template/spec/containers/0/resources/requests/memory
-        value: 512Mi
-      - op: replace
-        path: /spec/template/spec/containers/0/resources/limits/cpu
-        value: 1000m
-      - op: replace
-        path: /spec/template/spec/containers/0/resources/limits/memory
-        value: 1Gi
-
-  # Set replicas for high availability
-  - target:
-      kind: Deployment
-    patch: |-
-      - op: replace
-        path: /spec/replicas
-        value: 3
-
-  # HPA configurations for production (aggressive scaling)
+  # HPA configurations for staging (minimal scaling)
   - target:
       kind: HorizontalPodAutoscaler
       name: api-gateway-hpa
     patch: |-
       - op: replace
         path: /spec/minReplicas
-        value: 3
+        value: 1
       - op: replace
         path: /spec/maxReplicas
-        value: 10
+        value: 2
       - op: replace
         path: /spec/metrics/0/resource/target/averageUtilization
-        value: 75
+        value: 90
 
   - target:
       kind: HorizontalPodAutoscaler
@@ -169,13 +172,13 @@ patches:
     patch: |-
       - op: replace
         path: /spec/minReplicas
-        value: 3
+        value: 1
       - op: replace
         path: /spec/maxReplicas
-        value: 10
+        value: 2
       - op: replace
         path: /spec/metrics/0/resource/target/averageUtilization
-        value: 75
+        value: 90
 
   - target:
       kind: HorizontalPodAutoscaler
@@ -183,13 +186,13 @@ patches:
     patch: |-
       - op: replace
         path: /spec/minReplicas
-        value: 3
+        value: 1
       - op: replace
         path: /spec/maxReplicas
-        value: 10
+        value: 2
       - op: replace
         path: /spec/metrics/0/resource/target/averageUtilization
-        value: 75
+        value: 90
 
   - target:
       kind: HorizontalPodAutoscaler
@@ -197,13 +200,13 @@ patches:
     patch: |-
       - op: replace
         path: /spec/minReplicas
-        value: 3
+        value: 1
       - op: replace
         path: /spec/maxReplicas
-        value: 10
+        value: 2
       - op: replace
         path: /spec/metrics/0/resource/target/averageUtilization
-        value: 75
+        value: 90
 
 images:
   - name: ecommerce/api-gateway
@@ -223,7 +226,7 @@ configMapGenerator:
   - name: api-gateway-config
     behavior: merge
     literals:
-      - NODE_ENV=production
+      - NODE_ENV=staging
       - LOG_LEVEL=info
       - ENABLE_REQUEST_LOGGING=true
       - SESSION_STORE=redis
@@ -231,20 +234,20 @@ configMapGenerator:
   - name: products-service-config
     behavior: merge
     literals:
-      - NODE_ENV=production
+      - NODE_ENV=staging
       - LOG_LEVEL=info
       - ENABLE_REQUEST_LOGGING=true
 
   - name: orders-service-config
     behavior: merge
     literals:
-      - NODE_ENV=production
+      - NODE_ENV=staging
       - LOG_LEVEL=info
       - ENABLE_REQUEST_LOGGING=true
 
   - name: users-service-config
     behavior: merge
     literals:
-      - NODE_ENV=production
+      - NODE_ENV=staging
       - LOG_LEVEL=info
       - ENABLE_REQUEST_LOGGING=true

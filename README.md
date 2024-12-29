@@ -1,172 +1,108 @@
-# E-Commerce Microservices Deployment
+# E-Commerce Platform Infrastructure & Deployment
 
-This repository contains the Kubernetes deployment configurations for the e-commerce microservices platform. The deployment uses Kustomize for environment-specific configurations.
+## Project Overview
 
-## Architecture
+This repository demonstrates my expertise in modern DevOps practices and cloud-native architecture through a production-grade e-commerce platform deployment. The infrastructure is designed to be scalable, resilient, and follows industry best practices for security and monitoring.
 
-The platform consists of the following components:
+## Technical Stack
 
-### Microservices
-- **API Gateway** (`api-gateway-service`)
-- **Products Service** (`products-service`) with MongoDB
-- **Orders Service** (`orders-service`) with PostgreSQL
-- **Users Service** (`users-service`) with PostgreSQL
+### Infrastructure
+- **Cloud Provider**: AWS EKS
+- **Infrastructure as Code**: Terraform
+- **Container Orchestration**: Kubernetes
+- **Service Mesh**: Istio
+- **Package Management**: Kustomize
+- **Secrets Management**: AWS Secrets Manager, Kubernetes Secrets
 
-### Databases
-- **MongoDB** for Products Service (`products-db`)
-- **PostgreSQL** for Orders Service (`orders-db`)
-- **PostgreSQL** for Users Service (`users-db`)
+### CI/CD
+- **Continuous Integration**: GitHub Actions
+- **Deployment Strategy**: GitOps with automated rollbacks
+- **Environment Management**: Staging and Production environments
 
-## Directory Structure
+### Monitoring & Observability
+- **Metrics**: Prometheus
+- **Logging**: ELK Stack
+- **Alerting**: AlertManager
+
+## Architecture Highlights
+
+- **Microservices Architecture**: Decomposed into independent, scalable services
+- **API Gateway Pattern**: Centralized routing and authentication
+- **Event-Driven Design**: Asynchronous communication using message queues
+- **Database Per Service**: Independent data stores for service autonomy
+- **Auto-Scaling**: HPA for dynamic workload management
+- **High Availability**: Multi-AZ deployment with pod anti-affinity
+
+## DevOps Best Practices
+
+- **Infrastructure as Code (IaC)**
+  - Terraform modules for AWS infrastructure
+  - Kustomize overlays for environment-specific configurations
+  - Version-controlled infrastructure changes
+
+- **Continuous Deployment**
+  - Automated deployment pipelines
+  - Environment promotion workflow
+  - Canary deployments for risk mitigation
+
+- **Security**
+  - Network policies for service isolation
+  - RBAC implementation
+  - Secrets encryption at rest
+  - Regular security scanning
+
+- **Monitoring**
+  - Real-time metrics and alerting
+  - Distributed tracing
+  - Centralized logging
+  - Performance monitoring
+
+## Repository Structure
+
 ```
-k8s/
-├── base/                   # Base configurations
-│   └── kustomization.yaml
-├── microservices/         # Microservice deployments
-│   ├── api-gateway/
-│   ├── products/
-│   ├── orders/
-│   └── users/
-├── databases/             # Database StatefulSets
-│   ├── mongodb/
-│   └── postgresql/
-├── hpa/                   # Horizontal Pod Autoscaling
-└── overlays/             # Environment-specific configurations
-    ├── development/
-    ├── production/
-    └── local/
+├── terraform/                 # Infrastructure as Code
+│   ├── modules/              # Reusable infrastructure components
+│   └── environments/         # Environment-specific configurations
+├── k8s/                      # Kubernetes manifests
+│   ├── base/                 # Base configurations
+│   └── overlays/            # Environment overlays
+├── .github/
+│   └── workflows/           # CI/CD pipelines
+└── monitoring/              # Observability configurations
 ```
 
-## Configuration Management
+## Infrastructure Design
 
-### Base Configuration
-The base configuration includes:
-- Core service deployments
-- Database StatefulSets
-- Service configurations
-- HPA settings
-- Resource configurations via ConfigMaps
+The infrastructure follows a multi-environment setup with complete isolation between staging and production:
 
-### Environment-Specific Configurations
-Located in the `overlays` directory:
+- **Networking**: VPC with public and private subnets
+- **Security**: Network ACLs, Security Groups, and Pod Security Policies
+- **Scalability**: Auto-scaling groups and Horizontal Pod Autoscaling
+- **Reliability**: Multi-AZ deployment with automated failover
 
-#### Development Environment
-```bash
-kubectl apply -k k8s/overlays/development
-```
-- Lower resource requirements for local development
-- Single replicas
-- Local image pulling (Never)
-- Development-focused settings
-- Database migration jobs for initial setup
+## Deployment Strategy
 
-#### Production Environment
-```bash
-kubectl apply -k k8s/overlays/production
-```
-- Higher resource limits
-- Multiple replicas
-- Remote image pulling (Always)
-- Production-grade settings
+The deployment process implements a robust GitOps workflow:
 
-## Resource Configurations
+1. **Feature Branch** → Automated testing and validation
+2. **Staging Branch** → Deployment to staging environment
+3. **Main Branch** → Production deployment with canary release
 
-### Microservices
-- **API Gateway**:
-  - Development:
-    - CPU: 25m request
-    - Memory: 128Mi request
-  - Production:
-    - CPU: 100m-200m
-    - Memory: 256Mi-512Mi
-    - Replicas: 2-3
+Each step includes automated validation, security checks, and rollback capabilities.
 
-- **Products/Orders/Users Services**:
-  - Development:
-    - CPU: 25m request
-    - Memory: 128Mi request
-  - Production:
-    - CPU: 100m-200m
-    - Memory: 256Mi-512Mi
-    - Replicas: 2-3
+## Skills Demonstrated
 
-### Database Migrations
-- Automated migration jobs for:
-  - Users Service database
-  - Orders Service database
-- Jobs run automatically during deployment
-- One-time execution per schema update
+- Cloud Architecture Design
+- Infrastructure Automation
+- Container Orchestration
+- CI/CD Pipeline Development
+- Security Implementation
+- Monitoring & Observability
+- High Availability Design
+- Performance Optimization
+- Cost Management
+- Documentation
 
-### Databases
-- **MongoDB (Products)**:
-  - CPU: 200m-500m
-  - Memory: 256Mi-512Mi
-  - Storage: 10Gi
 
-- **PostgreSQL (Orders/Users)**:
-  - CPU: 200m-500m
-  - Memory: 256Mi-512Mi
-  - Storage: 10Gi
 
-## Security
-
-- All sensitive data stored in Kubernetes Secrets
-- Database credentials managed via secrets
-- Services run with appropriate security contexts
-- Network policies (TODO)
-
-## Monitoring
-
-- Prometheus annotations for metrics
-- HPA configurations for auto-scaling
-- Health check endpoints
-- Resource monitoring
-
-## Getting Started
-
-1. **Prerequisites**:
-   - Kubernetes cluster
-   - kubectl installed
-   - Kustomize installed (v4.x+)
-
-2. **Local Development**:
-   ```bash
-   # Deploy local environment
-   kubectl apply -k k8s/overlays/local
-   
-   # View resources
-   kubectl get all -n ecommerce-local
-   ```
-
-3. **Production Deployment**:
-   ```bash
-   # Deploy production environment
-   kubectl apply -k k8s/overlays/production
-   
-   # View resources
-   kubectl get all -n ecommerce-prod
-   ```
-
-## Maintenance
-
-### Updating Configurations
-1. Modify base configurations in `k8s/base/`
-2. Update environment-specific settings in `k8s/overlays/`
-3. Apply changes using `kubectl apply -k`
-
-### Scaling
-- Services automatically scale based on HPA configurations
-- Manual scaling available through kubectl
-- Database scaling requires additional steps
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Commit your changes
-4. Push to the branch
-5. Create a Pull Request
-
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
+*Note: This project serves as a demonstration of my technical capabilities and DevOps expertise. It is not intended for production use or as an open-source project.*
