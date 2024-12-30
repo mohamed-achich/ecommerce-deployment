@@ -26,6 +26,12 @@ This repository demonstrates my expertise in modern DevOps practices and cloud-n
 
 ## Architecture Highlights
 
+### System Architecture
+![Microservices Architecture](assets/microservices-architecture.png)
+
+### AWS Infrastructure
+![AWS Infrastructure](assets/aws-infrastructure.png)
+
 - **Microservices Architecture**: Decomposed into independent, scalable services
 - **API Gateway Pattern**: Centralized routing and authentication
 - **Event-Driven Design**: Asynchronous communication using message queues
